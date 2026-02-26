@@ -26,10 +26,16 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Refresh the session so it doesn't expire
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Refresh the session — guarded with a timeout to prevent middleware 504s
+  // if Supabase is slow or unreachable (e.g. paused free-tier project)
+  const timeout = new Promise<null>((resolve) =>
+    setTimeout(() => resolve(null), 4000)
+  );
+  const authResult = await Promise.race([
+    supabase.auth.getUser().then((res) => res.data.user),
+    timeout,
+  ]);
+  const user = authResult ?? null;
 
   const { pathname } = request.nextUrl;
 
