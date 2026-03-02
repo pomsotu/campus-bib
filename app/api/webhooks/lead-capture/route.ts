@@ -182,7 +182,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Get booking link from client settings (Calendly link)
-    let bookingLink = "";
+    // Default: PomsConvert Calendly (fallback until client has their own)
+    const DEFAULT_BOOKING_LINK = "https://calendly.com/pomsconvert/30min";
+    let bookingLink = DEFAULT_BOOKING_LINK;
     if (qualified) {
       const { data: settings } = await supabaseAdmin
         .from("client_settings")
@@ -191,7 +193,7 @@ export async function POST(request: NextRequest) {
         .eq("setting_key", "booking_link")
         .single();
 
-      bookingLink = (settings?.setting_value as { url?: string })?.url || "";
+      bookingLink = (settings?.setting_value as { url?: string })?.url || DEFAULT_BOOKING_LINK;
     }
 
     // Send auto-response email
