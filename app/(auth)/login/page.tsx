@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import { Zap, Mail, Lock, ArrowRight } from "lucide-react";
+import { Mail, Lock, ArrowRight } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -42,12 +42,11 @@ export default function LoginPage() {
       <div className="relative w-full max-w-sm space-y-8">
         {/* Brand */}
         <div className="text-center">
-          <div className="mx-auto w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 shadow-lg shadow-orange-500/25 flex items-center justify-center mb-4">
-            <Zap className="w-6 h-6 text-white" />
-          </div>
-          <h1 className="text-xl font-semibold text-white tracking-tight">
-            Campus Service
-          </h1>
+          <img
+            src="/logos/logo-dark.svg"
+            alt="CampusBIB"
+            className="h-10 w-auto mx-auto mb-8"
+          />
           <p className="text-sm text-slate-500 mt-1">
             Sign in to your business dashboard
           </p>
@@ -95,6 +94,16 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {/* Forgot Password */}
+            <div className="text-right -mt-1">
+              <a
+                href="/forgot-password"
+                className="text-xs text-orange-400/80 hover:text-orange-300 transition-colors"
+              >
+                Forgot password?
+              </a>
+            </div>
+
             {/* Submit */}
             <button
               type="submit"
@@ -118,7 +127,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="text-center text-xs text-slate-600">
-          Campus Service Business-in-a-Box
+          CampusBIB — Your operations. Automated.
         </p>
       </div>
     </div>

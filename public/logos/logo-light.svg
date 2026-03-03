@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 120" fill="none">
+  <!-- Icon -->
+  <g transform="translate(0,0)">
+    <!-- Graduation Cap -->
+    <polygon points="50,15 15,35 50,55 85,35" fill="#EA580C"/>
+    <polygon points="50,55 85,35 85,48 50,68" fill="#D14D0A"/>
+    <polygon points="50,55 15,35 15,48 50,68" fill="#EA580C" opacity="0.85"/>
+    <!-- Tassel -->
+    <line x1="72" y1="30" x2="72" y2="68" stroke="#EA580C" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="72" cy="71" r="3.5" fill="#EA580C"/>
+    <!-- Circuit lines -->
+    <path d="M22,60 L22,78 L40,78" stroke="#14B8A6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M40,78 L55,78 L55,88" stroke="#14B8A6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M34,60 L34,70 L48,70" stroke="#14B8A6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <!-- Circuit nodes -->
+    <circle cx="22" cy="60" r="3" fill="#14B8A6"/>
+    <circle cx="34" cy="60" r="3" fill="#14B8A6"/>
+    <circle cx="55" cy="88" r="3" fill="#14B8A6"/>
+    <circle cx="48" cy="70" r="3" fill="#14B8A6"/>
+  </g>
+  <!-- Wordmark (dark text for light backgrounds) -->
+  <text x="105" y="62" font-family="'Segoe UI', Arial, sans-serif" font-size="42" fill="#080B14" letter-spacing="0.5">
+    <tspan font-weight="300">Campus</tspan><tspan font-weight="700">BIB</tspan>
+  </text>
+</svg>

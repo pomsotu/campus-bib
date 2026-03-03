@@ -53,6 +53,7 @@ interface LeadCapturePayload {
 interface ClientConfig {
   id: string;
   name: string;
+  email: string;
   business_name: string;
   service_type: string;
   hourly_rate: number | null;
@@ -137,7 +138,7 @@ export async function POST(request: NextRequest) {
     // Fetch client configuration
     const { data: client, error: clientError } = await supabaseAdmin
       .from("clients")
-      .select("id, name, business_name, service_type, hourly_rate, exam_mode_enabled")
+      .select("id, name, email, business_name, service_type, hourly_rate, exam_mode_enabled")
       .eq("id", body.client_id)
       .single();
 
@@ -196,7 +197,7 @@ export async function POST(request: NextRequest) {
       bookingLink = (settings?.setting_value as { url?: string })?.url || DEFAULT_BOOKING_LINK;
     }
 
-    // Send auto-response email
+    // Send auto-response email to lead
     const emailResult = await sendEmail({
       to: body.email,
       subject: leadAutoResponseSubject({
@@ -220,6 +221,87 @@ export async function POST(request: NextRequest) {
       ],
     });
 
+    // Notify the business owner (client) about the new lead
+    const ownerEmailResult = await sendEmail({
+      to: client.email,
+      subject: `New Lead: ${body.name} ${qualified ? "✅ Qualified" : "— New"}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                     max-width: 600px; margin: 0 auto; padding: 24px; color: #1a1a2e; line-height: 1.6;">
+          <div style="background: white; border-radius: 12px; padding: 32px;
+                      box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <h2 style="margin-top: 0; color: #1a1a2e;">
+              New Lead Just Came In ${qualified ? "🎯" : "📩"}
+            </h2>
+
+            <div style="background: ${qualified ? "#f0fdf4" : "#f8f9fa"}; border-radius: 8px;
+                        padding: 20px; margin: 20px 0;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-size: 14px;">Name</td>
+                  <td style="padding: 6px 0; font-weight: 600; text-align: right;">${body.name}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-size: 14px;">Email</td>
+                  <td style="padding: 6px 0; font-weight: 600; text-align: right;">${body.email}</td>
+                </tr>
+                ${body.service_requested ? `<tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-size: 14px;">Service</td>
+                  <td style="padding: 6px 0; font-weight: 600; text-align: right;">${body.service_requested}</td>
+                </tr>` : ""}
+                ${body.budget_range ? `<tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-size: 14px;">Budget</td>
+                  <td style="padding: 6px 0; font-weight: 600; text-align: right;">${body.budget_range}</td>
+                </tr>` : ""}
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-size: 14px;">Source</td>
+                  <td style="padding: 6px 0; font-weight: 600; text-align: right;">${body.source || "website"}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-size: 14px;">Score</td>
+                  <td style="padding: 6px 0; font-weight: 600; text-align: right;">
+                    ${score}/100
+                    <span style="background: ${qualified ? "#d1fae5" : "#fef3c7"};
+                                 color: ${qualified ? "#065f46" : "#92400e"};
+                                 padding: 2px 8px; border-radius: 99px; font-size: 11px;
+                                 margin-left: 6px;">
+                      ${qualified ? "Qualified" : "Not Qualified"}
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </div>
+
+            ${body.notes ? `<p style="color: #6b7280; font-size: 14px;"><strong>Notes:</strong> ${body.notes}</p>` : ""}
+
+            <p style="color: #6b7280; font-size: 14px;">
+              ${qualified
+                ? "An auto-response with your booking link has been sent."
+                : "A polite holding response has been sent."}
+            </p>
+
+            <div style="text-align: center; margin: 24px 0;">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || ""}/leads"
+                 style="background-color: #6366f1; color: white; padding: 12px 28px;
+                        text-decoration: none; border-radius: 8px; font-weight: 600;
+                        display: inline-block;">
+                View in Dashboard →
+              </a>
+            </div>
+
+            <p style="color: #6b7280; font-size: 14px; margin-bottom: 0;">— Campus BIB</p>
+          </div>
+        </body>
+        </html>
+      `,
+      tags: [
+        { name: "workflow", value: "owner-notification" },
+        { name: "client_id", value: body.client_id },
+      ],
+    });
+
     // Log automation event
     await supabaseAdmin.from("automations").insert({
       client_id: body.client_id,
@@ -232,6 +314,7 @@ export async function POST(request: NextRequest) {
         qualification_score: score,
         qualified,
         email_id: emailResult.id,
+        owner_notified: ownerEmailResult.success,
         error: emailResult.error,
       },
     });
