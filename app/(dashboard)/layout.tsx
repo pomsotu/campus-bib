@@ -4,6 +4,7 @@ import { useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useClient } from "@/lib/hooks/useClient";
 
 export default function DashboardLayout({
   children,
@@ -11,6 +12,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { user, loading } = useAuth();
+  const { client } = useClient();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Loading state
@@ -53,6 +55,7 @@ export default function DashboardLayout({
       <div className="flex-1 flex flex-col min-w-0">
         <Header
           userEmail={user?.email}
+          clientId={client?.id}
           onMenuToggle={() => setSidebarOpen((v) => !v)}
         />
 

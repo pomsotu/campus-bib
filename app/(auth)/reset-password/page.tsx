@@ -74,11 +74,17 @@ export default function ResetPasswordPage() {
       <div className="relative w-full max-w-sm space-y-8">
         {/* Brand */}
         <div className="text-center">
-          <img
-            src="/logos/logo-dark.svg"
-            alt="CampusBIB"
-            className="h-10 w-auto mx-auto mb-8"
-          />
+          <div className="flex items-center justify-center gap-3 mb-8">
+            <img
+              src="/logos/logo-icon-64.png"
+              alt="CampusBIB"
+              className="h-10 w-10"
+            />
+            <span className="text-2xl text-slate-100 tracking-wide">
+              <span className="font-light">Campus</span>
+              <span className="font-bold">BIB</span>
+            </span>
+          </div>
           <p className="text-sm text-slate-500 mt-1">
             {success ? "Password updated!" : "Set your new password"}
           </p>

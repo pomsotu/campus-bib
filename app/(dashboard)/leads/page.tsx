@@ -1,24 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useClient } from "@/lib/hooks/useClient";
 import { useLeads } from "@/lib/hooks/useLeads";
 import Badge from "@/components/ui/Badge";
 import { SkeletonCard } from "@/components/ui/Skeleton";
-import EmptyState from "@/components/ui/EmptyState";
 import type { Lead, LeadStatus } from "@/types/database.types";
-import { toast } from "sonner";
 import {
-  Users,
   Search,
-  Calendar,
+  Filter,
+  UserPlus,
   Mail,
-  Briefcase,
-  Wallet,
-  MessageSquare,
+  Phone,
+  Clock,
   Globe,
   ChevronDown,
   ChevronUp,
+  Tag,
+  X,
+  GripVertical,
+  MessageSquare,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -26,157 +27,348 @@ import {
 /* ------------------------------------------------------------------ */
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  const d = new Date(iso);
+  const diff = Date.now() - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-const pipelineColumns: { status: LeadStatus; label: string; gradient: string; dot: string }[] = [
-  { status: "new",       label: "New",       gradient: "from-blue-500/20 to-blue-600/10",   dot: "bg-blue-400" },
-  { status: "qualified", label: "Qualified", gradient: "from-amber-500/20 to-amber-600/10", dot: "bg-amber-400" },
-  { status: "booked",    label: "Booked",    gradient: "from-indigo-500/20 to-indigo-600/10", dot: "bg-indigo-400" },
-  { status: "completed", label: "Completed", gradient: "from-emerald-500/20 to-emerald-600/10", dot: "bg-emerald-400" },
-  { status: "cold",      label: "Cold",      gradient: "from-slate-500/20 to-slate-600/10", dot: "bg-slate-400" },
+const pipelineColumns: {
+  status: LeadStatus;
+  label: string;
+  color: string;
+  dotColor: string;
+  headerBg: string;
+  columnBg: string;
+}[] = [
+  {
+    status: "new",
+    label: "New",
+    color: "text-blue-400",
+    dotColor: "bg-blue-400",
+    headerBg: "bg-blue-500/10",
+    columnBg: "bg-blue-500/[0.02]",
+  },
+  {
+    status: "qualified",
+    label: "Qualified",
+    color: "text-emerald-400",
+    dotColor: "bg-emerald-400",
+    headerBg: "bg-emerald-500/10",
+    columnBg: "bg-emerald-500/[0.02]",
+  },
+  {
+    status: "booked",
+    label: "Booked",
+    color: "text-orange-400",
+    dotColor: "bg-orange-400",
+    headerBg: "bg-orange-500/10",
+    columnBg: "bg-orange-500/[0.02]",
+  },
+  {
+    status: "completed",
+    label: "Completed",
+    color: "text-teal-400",
+    dotColor: "bg-teal-400",
+    headerBg: "bg-teal-500/10",
+    columnBg: "bg-teal-500/[0.02]",
+  },
+  {
+    status: "cold",
+    label: "Cold",
+    color: "text-slate-400",
+    dotColor: "bg-slate-500",
+    headerBg: "bg-slate-500/10",
+    columnBg: "bg-slate-500/[0.02]",
+  },
 ];
-
-const statusOptions: LeadStatus[] = ["new", "qualified", "booked", "completed", "cold"];
 
 /* ------------------------------------------------------------------ */
 /*  Page                                                               */
 /* ------------------------------------------------------------------ */
 
 export default function LeadsPage() {
-  const { client, loading: clientLoading, error: clientError } = useClient();
-  const { leads, loading, error, updateLeadStatus, refetch } = useLeads(client?.id);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const { client, loading: clientLoading } = useClient();
+  const {
+    leads,
+    loading: leadsLoading,
+    updateLeadStatus,
+  } = useLeads(client?.id);
   const [searchQuery, setSearchQuery] = useState("");
+  const [expandedLead, setExpandedLead] = useState<string | null>(null);
+  const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<LeadStatus | null>(null);
+  const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
 
-  /* ── Loading ── */
-  if (clientLoading || loading) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-semibold text-white tracking-tight">Leads</h1>
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          {[...Array(5)].map((_, i) => (
-            <SkeletonCard key={i} className="h-48" />
-          ))}
-        </div>
-      </div>
+  const filteredLeads = useMemo(() => {
+    if (!searchQuery.trim()) return leads;
+    const q = searchQuery.toLowerCase();
+    return leads.filter(
+      (l) =>
+        l.name?.toLowerCase().includes(q) ||
+        l.email?.toLowerCase().includes(q) ||
+        l.service_requested?.toLowerCase().includes(q)
     );
-  }
+  }, [leads, searchQuery]);
 
-  /* ── Error ── */
-  if (clientError || error) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-semibold text-white tracking-tight">Leads</h1>
-        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6">
-          <p className="text-red-400 text-sm font-medium">Failed to load leads</p>
-          <p className="text-red-400/70 text-sm mt-1">{clientError ?? error}</p>
-          <button
-            onClick={refetch}
-            className="mt-3 text-xs text-orange-400 hover:text-orange-300 font-medium cursor-pointer"
-          >
-            Try again →
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  /* ── Filter by search ── */
-  const filtered = searchQuery
-    ? leads.filter(
-        (l) =>
-          l.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          l.email?.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : leads;
-
-  /* ── Group leads by status ── */
-  const grouped: Record<LeadStatus, Lead[]> = {
-    new: [], qualified: [], booked: [], completed: [], cold: [],
-  };
-  for (const lead of filtered) {
-    if (grouped[lead.status]) grouped[lead.status].push(lead);
-  }
-
-  const handleStatusChange = async (leadId: string, newStatus: LeadStatus) => {
-    const { error: err } = await updateLeadStatus(leadId, newStatus);
-    if (err) {
-      toast.error("Failed to update lead", { description: err });
-    } else {
-      toast.success(`Lead moved to ${newStatus}`);
-      refetch();
+  const groupedLeads = useMemo(() => {
+    const groups: Record<LeadStatus, Lead[]> = {
+      new: [],
+      qualified: [],
+      booked: [],
+      completed: [],
+      cold: [],
+    };
+    for (const lead of filteredLeads) {
+      groups[lead.status]?.push(lead);
     }
+    return groups;
+  }, [filteredLeads]);
+
+  const isLoading = clientLoading || leadsLoading;
+
+  const handleStatusChange = async (
+    leadId: string,
+    newStatus: LeadStatus
+  ) => {
+    await updateLeadStatus(leadId, newStatus);
+  };
+
+  const handleDragStart = (lead: Lead) => {
+    setDraggedLead(lead);
+  };
+
+  const handleDragOver = (e: React.DragEvent, status: LeadStatus) => {
+    e.preventDefault();
+    setDragOverCol(status);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverCol(null);
+  };
+
+  const handleDrop = (status: LeadStatus) => {
+    if (draggedLead && draggedLead.status !== status) {
+      handleStatusChange(draggedLead.id, status);
+    }
+    setDraggedLead(null);
+    setDragOverCol(null);
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header row */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-white tracking-tight">Leads</h1>
-          <p className="text-sm text-slate-500">{leads.length} total leads</p>
-        </div>
-
+    <div className="space-y-5 h-full flex flex-col">
+      {/* ── Header Bar ── */}
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         {/* Search */}
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input
             type="text"
-            placeholder="Search leads…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-orange-500/50 focus:border-orange-500/30 transition-all"
+            placeholder="Search leads..."
+            className="w-full pl-10 pr-4 py-2.5 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40 transition-all"
           />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-2">
+          {/* View toggle */}
+          <div className="flex rounded-xl overflow-hidden border border-white/[0.06]">
+            <button
+              onClick={() => setViewMode("kanban")}
+              className={`px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
+                viewMode === "kanban"
+                  ? "bg-white/[0.06] text-white"
+                  : "text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              Board
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              className={`px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
+                viewMode === "list"
+                  ? "bg-white/[0.06] text-white"
+                  : "text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              List
+            </button>
+          </div>
+          <button className="flex items-center gap-2 px-3.5 py-2.5 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/[0.05] transition-all cursor-pointer">
+            <Filter className="w-4 h-4" />
+            <span className="hidden sm:inline">Filter</span>
+          </button>
+          <button className="flex items-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-medium rounded-xl text-sm transition-all shadow-lg shadow-orange-500/20 cursor-pointer">
+            <UserPlus className="w-4 h-4" />
+            <span>Add Lead</span>
+          </button>
         </div>
       </div>
 
-      {/* ── Pipeline Columns ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 items-start">
+      {/* ── Stats Summary ── */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="text-xs text-slate-500">
+          {filteredLeads.length} leads
+          {searchQuery && ` matching "${searchQuery}"`}
+        </span>
+        <span className="text-slate-700">·</span>
         {pipelineColumns.map((col) => (
-          <div
-            key={col.status}
-            className="bg-white/[0.02] border border-white/[0.06] rounded-2xl overflow-hidden"
-          >
-            {/* Column header */}
-            <div className={`px-4 py-3 bg-gradient-to-r ${col.gradient}`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${col.dot}`} />
-                  <span className="text-sm font-semibold text-white">{col.label}</span>
-                </div>
-                <span className="text-[11px] text-slate-400 bg-white/[0.06] px-2 py-0.5 rounded-full font-medium">
-                  {grouped[col.status].length}
-                </span>
-              </div>
-            </div>
-
-            {/* Cards */}
-            <div className="p-2 space-y-2 min-h-[100px]">
-              {grouped[col.status].length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <Users className="w-5 h-5 text-slate-600 mb-2" />
-                  <p className="text-xs text-slate-600">No leads</p>
-                </div>
-              ) : (
-                grouped[col.status].map((lead) => (
-                  <LeadCard
-                    key={lead.id}
-                    lead={lead}
-                    expanded={expandedId === lead.id}
-                    onToggle={() => setExpandedId((prev) => (prev === lead.id ? null : lead.id))}
-                    onStatusChange={(s) => handleStatusChange(lead.id, s)}
-                  />
-                ))
-              )}
-            </div>
-          </div>
+          <span key={col.status} className="flex items-center gap-1.5">
+            <span className={`w-1.5 h-1.5 rounded-full ${col.dotColor}`} />
+            <span className="text-xs text-slate-600">
+              {groupedLeads[col.status].length}
+            </span>
+          </span>
         ))}
       </div>
+
+      {/* ── Board / List ── */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 flex-1">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="space-y-3">
+              <SkeletonCard className="h-10" />
+              <SkeletonCard className="h-32" />
+              <SkeletonCard className="h-32" />
+            </div>
+          ))}
+        </div>
+      ) : viewMode === "kanban" ? (
+        /* ── Kanban Board ── */
+        <div className="flex-1 overflow-x-auto pb-4 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 min-w-0">
+            {pipelineColumns.map((col) => {
+              const columnLeads = groupedLeads[col.status];
+              const isDragOver = dragOverCol === col.status;
+              return (
+                <div
+                  key={col.status}
+                  className={`rounded-2xl border ${
+                    isDragOver
+                      ? "border-white/[0.15] ring-1 ring-white/[0.08]"
+                      : "border-white/[0.06]"
+                  } ${col.columnBg} min-h-[250px] flex flex-col transition-all`}
+                  onDragOver={(e) => handleDragOver(e, col.status)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={() => handleDrop(col.status)}
+                >
+                  {/* Column header */}
+                  <div
+                    className={`flex items-center justify-between px-3.5 py-2.5 ${col.headerBg} rounded-t-2xl border-b border-white/[0.06]`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`w-2 h-2 rounded-full ${col.dotColor}`}
+                      />
+                      <span
+                        className={`text-xs font-semibold ${col.color}`}
+                      >
+                        {col.label}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-medium bg-white/[0.06] px-1.5 py-0.5 rounded-full tabular-nums">
+                      {columnLeads.length}
+                    </span>
+                  </div>
+
+                  {/* Cards */}
+                  <div className="p-2 flex-1 space-y-2 overflow-y-auto max-h-[calc(100vh-340px)]">
+                    {columnLeads.length === 0 ? (
+                      <div className="flex items-center justify-center py-8 text-center">
+                        <p className="text-[11px] text-slate-600">
+                          No leads
+                        </p>
+                      </div>
+                    ) : (
+                      columnLeads.map((lead) => (
+                        <LeadCard
+                          key={lead.id}
+                          lead={lead}
+                          expanded={expandedLead === lead.id}
+                          onToggle={() =>
+                            setExpandedLead(
+                              expandedLead === lead.id ? null : lead.id
+                            )
+                          }
+                          onStatusChange={(s) =>
+                            handleStatusChange(lead.id, s)
+                          }
+                          onDragStart={() => handleDragStart(lead)}
+                        />
+                      ))
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        /* ── List View ── */
+        <div className="flex-1 bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
+          {/* Table header */}
+          <div className="hidden sm:grid sm:grid-cols-[1fr_1fr_auto_auto_auto] gap-4 px-5 py-3 border-b border-white/[0.06] text-xs font-medium text-slate-500">
+            <span>Name</span>
+            <span>Contact</span>
+            <span>Service</span>
+            <span>Status</span>
+            <span>Added</span>
+          </div>
+          <div className="divide-y divide-white/[0.04]">
+            {filteredLeads.length === 0 ? (
+              <div className="flex items-center justify-center py-12">
+                <p className="text-sm text-slate-600">No leads found</p>
+              </div>
+            ) : (
+              filteredLeads.map((lead) => (
+                <div
+                  key={lead.id}
+                  className="flex flex-col sm:grid sm:grid-cols-[1fr_1fr_auto_auto_auto] gap-2 sm:gap-4 sm:items-center px-5 py-3 hover:bg-white/[0.02] transition-colors"
+                >
+                  {/* Name */}
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-orange-500/20 to-teal-500/20 border border-white/[0.06] flex items-center justify-center text-[10px] font-bold text-orange-400 uppercase shrink-0">
+                      {(lead.name ?? "?").charAt(0)}
+                    </div>
+                    <p className="text-sm font-medium text-white truncate">
+                      {lead.name ?? "Unnamed"}
+                    </p>
+                  </div>
+                  {/* Contact */}
+                  <p className="text-xs text-slate-500 truncate">
+                    {lead.email ?? "No email"}
+                  </p>
+                  {/* Service */}
+                  <span className="text-[10px] text-slate-400 bg-white/[0.04] px-2 py-0.5 rounded-full truncate max-w-[120px]">
+                    {lead.service_requested ?? "—"}
+                  </span>
+                  {/* Status */}
+                  <Badge status={lead.status} variant="lead" />
+                  {/* Added */}
+                  <span className="text-[10px] text-slate-600 tabular-nums">
+                    {formatDate(lead.created_at)}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -190,85 +382,96 @@ function LeadCard({
   expanded,
   onToggle,
   onStatusChange,
+  onDragStart,
 }: {
   lead: Lead;
   expanded: boolean;
   onToggle: () => void;
   onStatusChange: (status: LeadStatus) => void;
+  onDragStart: () => void;
 }) {
   return (
     <div
-      className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 cursor-pointer hover:bg-white/[0.06] hover:shadow-lg hover:shadow-black/20 hover:-translate-y-0.5 transition-all duration-200"
-      onClick={onToggle}
+      draggable
+      onDragStart={onDragStart}
+      className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 hover:bg-white/[0.05] hover:border-white/[0.1] transition-all cursor-grab active:cursor-grabbing group"
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500/20 to-teal-500/20 border border-white/[0.06] flex items-center justify-center text-[11px] font-bold text-orange-400 uppercase shrink-0">
-            {(lead.name ?? "?").charAt(0)}
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-white truncate">{lead.name ?? "Unnamed"}</p>
-            <p className="text-[11px] text-slate-500 truncate">{lead.email ?? "No email"}</p>
-          </div>
+      {/* Top row */}
+      <div className="flex items-start gap-2.5">
+        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-orange-500/20 to-teal-500/20 border border-white/[0.06] flex items-center justify-center text-[10px] font-bold text-orange-400 uppercase shrink-0">
+          {(lead.name ?? "?").charAt(0)}
         </div>
-        {expanded ? (
-          <ChevronUp className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-1" />
-        ) : (
-          <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-1" />
-        )}
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium text-white truncate">
+            {lead.name ?? "Unnamed"}
+          </p>
+          <p className="text-[10px] text-slate-500 truncate">
+            {lead.email ?? "No email"}
+          </p>
+        </div>
+        <button
+          onClick={onToggle}
+          className="text-slate-600 hover:text-slate-400 cursor-pointer p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          {expanded ? (
+            <ChevronUp className="w-3 h-3" />
+          ) : (
+            <ChevronDown className="w-3 h-3" />
+          )}
+        </button>
       </div>
 
+      {/* Tags row */}
+      <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+        {lead.service_requested && (
+          <span className="inline-flex items-center gap-1 text-[9px] font-medium text-slate-400 bg-white/[0.04] px-1.5 py-0.5 rounded-full">
+            <Tag className="w-2 h-2" />
+            {lead.service_requested}
+          </span>
+        )}
+        {lead.source && (
+          <span className="inline-flex items-center gap-1 text-[9px] font-medium text-slate-500 bg-white/[0.03] px-1.5 py-0.5 rounded-full">
+            <Globe className="w-2 h-2" />
+            {lead.source}
+          </span>
+        )}
+        <span className="text-[9px] text-slate-600 ml-auto">
+          {formatDate(lead.created_at)}
+        </span>
+      </div>
+
+      {/* Expanded details */}
       {expanded && (
-        <div
-          className="mt-3 pt-3 border-t border-white/[0.06] space-y-2.5 expand-enter"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {lead.service_requested && (
-            <DetailRow icon={<Briefcase className="w-3 h-3" />} label="Service" value={lead.service_requested} />
-          )}
-          {lead.budget_range && (
-            <DetailRow icon={<Wallet className="w-3 h-3" />} label="Budget" value={lead.budget_range} />
-          )}
-          {lead.source && (
-            <DetailRow icon={<Globe className="w-3 h-3" />} label="Source" value={lead.source} />
-          )}
-          <DetailRow icon={<Calendar className="w-3 h-3" />} label="Created" value={formatDate(lead.created_at)} />
-          {lead.email && (
-            <DetailRow icon={<Mail className="w-3 h-3" />} label="Email" value={lead.email} />
+        <div className="mt-2.5 pt-2.5 border-t border-white/[0.06] space-y-2">
+          {lead.phone && (
+            <div className="flex items-center gap-2 text-[11px] text-slate-400">
+              <Phone className="w-3 h-3 text-slate-500" />
+              <span>{lead.phone}</span>
+            </div>
           )}
           {lead.notes && (
-            <DetailRow icon={<MessageSquare className="w-3 h-3" />} label="Notes" value={lead.notes} />
+            <div className="flex items-start gap-2 text-[11px] text-slate-500">
+              <MessageSquare className="w-3 h-3 text-slate-600 mt-0.5 shrink-0" />
+              <p className="line-clamp-2">{lead.notes}</p>
+            </div>
           )}
 
-          {/* Status dropdown */}
-          <div className="pt-1">
-            <label className="text-[11px] text-slate-500 font-medium block mb-1.5">Move to:</label>
-            <select
-              value={lead.status}
-              onChange={(e) => onStatusChange(e.target.value as LeadStatus)}
-              className="w-full bg-slate-800 border border-white/[0.08] rounded-lg px-2.5 py-2 text-white text-xs focus:outline-none focus:ring-1 focus:ring-orange-500/50 cursor-pointer appearance-none"
-            >
-              {statusOptions.map((s) => (
-                <option key={s} value={s}>
-                  {s.charAt(0).toUpperCase() + s.slice(1)}
-                </option>
+          {/* Status change buttons */}
+          <div className="flex flex-wrap gap-1 mt-1">
+            {pipelineColumns
+              .filter((col) => col.status !== lead.status)
+              .map((col) => (
+                <button
+                  key={col.status}
+                  onClick={() => onStatusChange(col.status)}
+                  className={`text-[9px] font-medium px-1.5 py-0.5 rounded-md border border-white/[0.06] hover:bg-white/[0.05] transition-colors cursor-pointer ${col.color}`}
+                >
+                  → {col.label}
+                </button>
               ))}
-            </select>
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div className="flex items-start gap-2 text-xs">
-      <div className="text-slate-500 mt-0.5 shrink-0">{icon}</div>
-      <div>
-        <span className="text-slate-500">{label}: </span>
-        <span className="text-slate-300">{value}</span>
-      </div>
     </div>
   );
 }

@@ -1,25 +1,56 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 120" fill="none">
-  <!-- Icon -->
+  <defs>
+    <linearGradient id="capTop" x1="10" y1="12" x2="90" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F97316"/>
+      <stop offset="100%" stop-color="#EA580C"/>
+    </linearGradient>
+    <linearGradient id="capRight" x1="50" y1="46" x2="88" y2="66" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#D14D0A"/>
+      <stop offset="100%" stop-color="#B84308"/>
+    </linearGradient>
+    <linearGradient id="capLeft" x1="12" y1="46" x2="50" y2="66" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#EA580C"/>
+      <stop offset="100%" stop-color="#D14D0A"/>
+    </linearGradient>
+    <linearGradient id="tealGrad" x1="18" y1="58" x2="60" y2="92" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2DD4BF"/>
+      <stop offset="100%" stop-color="#14B8A6"/>
+    </linearGradient>
+    <linearGradient id="tasselGrad" x1="72" y1="26" x2="72" y2="74" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F97316"/>
+      <stop offset="100%" stop-color="#EA580C"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Icon group -->
   <g transform="translate(0,0)">
-    <!-- Graduation Cap -->
-    <polygon points="50,15 15,35 50,55 85,35" fill="#EA580C"/>
-    <polygon points="50,55 85,35 85,48 50,68" fill="#D14D0A"/>
-    <polygon points="50,55 15,35 15,48 50,68" fill="#EA580C" opacity="0.85"/>
+    <!-- Cap top brim -->
+    <path d="M50,12 Q52,12 88,33 Q90,34 88,36 L50,57 Q48,58 12,36 Q10,35 12,33 Z" fill="url(#capTop)"/>
+    <!-- Right panel -->
+    <path d="M50,57 L88,36 Q89,36 89,38 L89,50 Q89,51 88,52 L50,72 Q49,72 49,71 L49,58 Q49,57 50,57 Z" fill="url(#capRight)"/>
+    <!-- Left panel -->
+    <path d="M50,57 L12,36 Q11,36 11,38 L11,50 Q11,51 12,52 L50,72 Q51,72 51,71 L51,58 Q51,57 50,57 Z" fill="url(#capLeft)" opacity="0.9"/>
     <!-- Tassel -->
-    <line x1="72" y1="30" x2="72" y2="68" stroke="#EA580C" stroke-width="2.5" stroke-linecap="round"/>
-    <circle cx="72" cy="71" r="3.5" fill="#EA580C"/>
-    <!-- Circuit lines -->
-    <path d="M22,60 L22,78 L40,78" stroke="#14B8A6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    <path d="M40,78 L55,78 L55,88" stroke="#14B8A6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    <path d="M34,60 L34,70 L48,70" stroke="#14B8A6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M73,29 C73,29 74,44 73,58 Q73,61 72,64" stroke="url(#tasselGrad)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+    <circle cx="72" cy="67" r="4" fill="#F97316"/>
+    <circle cx="72" cy="67" r="2.2" fill="#EA580C"/>
+    <!-- Circuit traces -->
+    <path d="M20,60 C20,65 20,73 20,77 Q20,80 23,80 L38,80" stroke="url(#tealGrad)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M38,80 L52,80 Q55,80 55,83 L55,89" stroke="url(#tealGrad)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M32,60 C32,63 32,67 32,69 Q32,72 35,72 L46,72" stroke="url(#tealGrad)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
     <!-- Circuit nodes -->
-    <circle cx="22" cy="60" r="3" fill="#14B8A6"/>
-    <circle cx="34" cy="60" r="3" fill="#14B8A6"/>
-    <circle cx="55" cy="88" r="3" fill="#14B8A6"/>
-    <circle cx="48" cy="70" r="3" fill="#14B8A6"/>
+    <circle cx="20" cy="60" r="3.5" fill="#2DD4BF"/>
+    <circle cx="20" cy="60" r="1.8" fill="#5EEAD4" opacity="0.6"/>
+    <circle cx="32" cy="60" r="3.5" fill="#2DD4BF"/>
+    <circle cx="32" cy="60" r="1.8" fill="#5EEAD4" opacity="0.6"/>
+    <circle cx="55" cy="89" r="3.5" fill="#2DD4BF"/>
+    <circle cx="55" cy="89" r="1.8" fill="#5EEAD4" opacity="0.6"/>
+    <circle cx="46" cy="72" r="3.5" fill="#2DD4BF"/>
+    <circle cx="46" cy="72" r="1.8" fill="#5EEAD4" opacity="0.6"/>
   </g>
+
   <!-- Wordmark (dark text for light backgrounds) -->
-  <text x="105" y="62" font-family="'Segoe UI', Arial, sans-serif" font-size="42" fill="#080B14" letter-spacing="0.5">
+  <text x="108" y="62" font-family="'Inter', 'Segoe UI', Arial, sans-serif" font-size="42" fill="#080B14" letter-spacing="0.5">
     <tspan font-weight="300">Campus</tspan><tspan font-weight="700">BIB</tspan>
   </text>
 </svg>

@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { Bell } from "lucide-react";
+import { useNotifications } from "@/lib/hooks/useNotifications";
+import NotificationPanel from "./NotificationPanel";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -19,14 +22,26 @@ const pageDescriptions: Record<string, string> = {
 
 export default function Header({
   userEmail,
+  clientId,
   onMenuToggle,
 }: {
   userEmail: string | undefined;
+  clientId: string | undefined;
   onMenuToggle: () => void;
 }) {
   const pathname = usePathname();
   const title = pageTitles[pathname] ?? "Dashboard";
   const description = pageDescriptions[pathname] ?? "";
+
+  const [panelOpen, setPanelOpen] = useState(false);
+  const {
+    notifications,
+    unreadCount,
+    readIds,
+    markAsRead,
+    markAllRead,
+    loading: notifLoading,
+  } = useNotifications(clientId);
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 sm:px-6 bg-slate-950/80 backdrop-blur-xl border-b border-white/[0.06]">
@@ -56,10 +71,31 @@ export default function Header({
       {/* Right: notifications + user */}
       <div className="flex items-center gap-3">
         {/* Notification bell */}
-        <button className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.04] transition-colors cursor-pointer relative">
-          <Bell className="w-[18px] h-[18px]" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-orange-500" />
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => setPanelOpen((v) => !v)}
+            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.04] transition-colors cursor-pointer relative"
+            aria-label="Notifications"
+          >
+            <Bell className="w-[18px] h-[18px]" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 flex items-center justify-center min-w-[16px] h-4 px-1 text-[9px] font-bold rounded-full bg-orange-500 text-white">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {panelOpen && (
+            <NotificationPanel
+              notifications={notifications}
+              readIds={readIds}
+              onMarkAsRead={markAsRead}
+              onMarkAllRead={markAllRead}
+              onClose={() => setPanelOpen(false)}
+              loading={notifLoading}
+            />
+          )}
+        </div>
 
         {/* User avatar */}
         {userEmail && (

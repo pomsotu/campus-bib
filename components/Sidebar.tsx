@@ -60,10 +60,14 @@ export default function Sidebar({
         {/* ── Brand ── */}
         <div className="flex items-center gap-3 px-5 py-6 border-b border-white/[0.06]">
           <img
-            src="/logos/logo-dark.svg"
+            src="/logos/logo-icon-64.png"
             alt="CampusBIB"
-            className="h-8 w-auto"
+            className="h-8 w-8"
           />
+          <span className="text-lg text-slate-100 tracking-wide">
+            <span className="font-light">Campus</span>
+            <span className="font-bold">BIB</span>
+          </span>
         </div>
 
         {/* ── Navigation ── */}

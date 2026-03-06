@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useClient } from "@/lib/hooks/useClient";
 import { useSessions, type SessionWithLead } from "@/lib/hooks/useSessions";
 import Badge from "@/components/ui/Badge";
-import { SkeletonTable } from "@/components/ui/Skeleton";
+import { SkeletonCard, SkeletonRow } from "@/components/ui/Skeleton";
 import EmptyState from "@/components/ui/EmptyState";
 import type { SessionStatus } from "@/types/database.types";
 import { toast } from "sonner";
@@ -17,6 +17,11 @@ import {
   Clock,
   DollarSign,
   StickyNote,
+  User,
+  Mail,
+  Plus,
+  ChevronRight,
+  Video,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -33,6 +38,33 @@ function formatDateTime(iso: string) {
   });
 }
 
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function getDuration(start: string, end: string): string {
+  const diff = new Date(end).getTime() - new Date(start).getTime();
+  const mins = Math.round(diff / 60000);
+  if (mins < 60) return `${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  return remMins > 0 ? `${hrs}h ${remMins}m` : `${hrs}h`;
+}
+
+const statusAccent: Record<
+  string,
+  { bar: string; bg: string }
+> = {
+  scheduled: { bar: "bg-teal-500", bg: "border-l-teal-500" },
+  completed: { bar: "bg-emerald-500", bg: "border-l-emerald-500" },
+  cancelled: { bar: "bg-red-500", bg: "border-l-red-500" },
+  "no-show": { bar: "bg-amber-500", bg: "border-l-amber-500" },
+  rescheduled: { bar: "bg-blue-500", bg: "border-l-blue-500" },
+};
+
 const filterTabs: { label: string; value: SessionStatus | "all" }[] = [
   { label: "All", value: "all" },
   { label: "Scheduled", value: "scheduled" },
@@ -47,7 +79,9 @@ const filterTabs: { label: string; value: SessionStatus | "all" }[] = [
 export default function SessionsPage() {
   const { client, loading: clientLoading, error: clientError } = useClient();
   const [filter, setFilter] = useState<SessionStatus | "all">("all");
-  const [selectedSession, setSelectedSession] = useState<SessionWithLead | null>(null);
+  const [selectedSession, setSelectedSession] =
+    useState<SessionWithLead | null>(null);
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
   const {
     sessions,
@@ -57,18 +91,41 @@ export default function SessionsPage() {
     refetch,
   } = useSessions(client?.id, filter === "all" ? undefined : filter);
 
+  // Count by status for tab badges
+  const {
+    sessions: allSessions,
+  } = useSessions(client?.id);
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: 0 };
+    for (const s of allSessions) {
+      counts[s.status] = (counts[s.status] ?? 0) + 1;
+      counts.all++;
+    }
+    return counts;
+  }, [allSessions]);
+
   /* ── Loading ── */
   if (clientLoading || loading) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-semibold text-white tracking-tight">Sessions</h1>
+      <div className="space-y-5">
         <div className="flex gap-2">
           {filterTabs.map((t) => (
-            <div key={t.value} className="skeleton h-9 w-24 rounded-xl" />
+            <div
+              key={t.value}
+              className="h-9 w-24 rounded-xl bg-white/[0.03] animate-pulse"
+            />
           ))}
         </div>
-        <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
-          <SkeletonTable rows={5} />
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+          <div className="lg:col-span-3 space-y-3">
+            {[...Array(4)].map((_, i) => (
+              <SkeletonCard key={i} className="h-20" />
+            ))}
+          </div>
+          <div className="lg:col-span-2">
+            <SkeletonCard className="h-[400px]" />
+          </div>
         </div>
       </div>
     );
@@ -77,11 +134,14 @@ export default function SessionsPage() {
   /* ── Error ── */
   if (clientError || error) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-semibold text-white tracking-tight">Sessions</h1>
+      <div className="space-y-5">
         <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6">
-          <p className="text-red-400 text-sm font-medium">Failed to load sessions</p>
-          <p className="text-red-400/70 text-sm mt-1">{clientError ?? error}</p>
+          <p className="text-red-400 text-sm font-medium">
+            Failed to load sessions
+          </p>
+          <p className="text-red-400/70 text-sm mt-1">
+            {clientError ?? error}
+          </p>
           <button
             onClick={refetch}
             className="mt-3 text-xs text-orange-400 hover:text-orange-300 font-medium cursor-pointer"
@@ -93,109 +153,176 @@ export default function SessionsPage() {
     );
   }
 
-  const handleStatusUpdate = async (sessionId: string, newStatus: SessionStatus) => {
+  const handleStatusUpdate = async (
+    sessionId: string,
+    newStatus: SessionStatus
+  ) => {
     const { error: err } = await updateSessionStatus(sessionId, newStatus);
     if (err) {
       toast.error("Failed to update session", { description: err });
     } else {
       toast.success(
-        newStatus === "completed" ? "Session marked as completed" : "Session cancelled"
+        newStatus === "completed"
+          ? "Session marked as completed"
+          : "Session cancelled"
       );
       refetch();
     }
     setSelectedSession(null);
+    setMobileDetailOpen(false);
+  };
+
+  const handleSelectSession = (s: SessionWithLead) => {
+    setSelectedSession(s);
+    setMobileDetailOpen(true);
   };
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-white tracking-tight">Sessions</h1>
+    <div className="space-y-5">
+      {/* ── Top Bar ── */}
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+        {/* Filter Tabs */}
+        <div className="flex gap-1.5 flex-wrap">
+          {filterTabs.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setFilter(tab.value)}
+              className={`px-3.5 py-2 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+                filter === tab.value
+                  ? "bg-orange-500/15 text-orange-400 border border-orange-500/25"
+                  : "bg-white/[0.03] text-slate-400 border border-white/[0.06] hover:text-white hover:bg-white/[0.06]"
+              }`}
+            >
+              {tab.label}
+              {statusCounts[tab.value] > 0 && (
+                <span
+                  className={`text-[10px] px-1.5 py-0 rounded-full ${
+                    filter === tab.value
+                      ? "bg-orange-500/20 text-orange-400"
+                      : "bg-white/[0.06] text-slate-500"
+                  }`}
+                >
+                  {statusCounts[tab.value]}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
 
-      {/* ── Filter Tabs ── */}
-      <div className="flex gap-2 flex-wrap">
-        {filterTabs.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => setFilter(tab.value)}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
-              filter === tab.value
-                ? "bg-orange-500/15 text-orange-400 border border-orange-500/25 shadow-sm shadow-orange-500/10"
-                : "bg-white/[0.03] text-slate-400 border border-white/[0.06] hover:text-white hover:bg-white/[0.06]"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+        <button className="flex items-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-medium rounded-xl text-sm transition-all shadow-lg shadow-orange-500/20 cursor-pointer">
+          <Plus className="w-4 h-4" />
+          <span>New Session</span>
+        </button>
       </div>
 
-      {/* ── Sessions Table ── */}
-      <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
-        {sessions.length === 0 ? (
-          <EmptyState
-            icon={<CalendarDays className="w-6 h-6 text-slate-500" />}
-            title="No sessions found"
-            description={filter === "all" ? "Sessions will appear here once created" : `No ${filter} sessions`}
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/[0.06]">
-                  <th className="px-5 py-3.5 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Lead</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Scheduled</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Payment</th>
-                  <th className="px-5 py-3.5 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sessions.map((s, i) => (
-                  <tr
-                    key={s.id}
-                    onClick={() => setSelectedSession(s)}
-                    className={`border-b border-white/[0.03] cursor-pointer transition-colors hover:bg-white/[0.04] ${
-                      i % 2 === 0 ? "" : "bg-white/[0.01]"
-                    }`}
-                  >
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500/20 to-teal-500/20 border border-white/[0.06] flex items-center justify-center text-xs font-bold text-orange-400 uppercase shrink-0">
-                          {(s.lead_name ?? "?").charAt(0)}
-                        </div>
-                        <span className="font-medium text-white">{s.lead_name ?? "Unknown"}</span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5 text-slate-300">{formatDateTime(s.scheduled_time)}</td>
-                    <td className="px-5 py-3.5"><Badge status={s.status} variant="session" /></td>
-                    <td className="px-5 py-3.5"><Badge status={s.payment_status} variant="payment" /></td>
-                    <td className="px-5 py-3.5 text-right text-white font-medium">
-                      {s.payment_amount != null ? `$${s.payment_amount}` : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {/* ── Split View ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        {/* Session List */}
+        <div
+          className={`lg:col-span-3 space-y-2 ${
+            mobileDetailOpen ? "hidden lg:block" : ""
+          }`}
+        >
+          {sessions.length === 0 ? (
+            <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl">
+              <EmptyState
+                icon={
+                  <CalendarDays className="w-6 h-6 text-slate-500" />
+                }
+                title="No sessions found"
+                description={
+                  filter === "all"
+                    ? "Sessions will appear here once created"
+                    : `No ${filter} sessions`
+                }
+              />
+            </div>
+          ) : (
+            sessions.map((s) => {
+              const accent =
+                statusAccent[s.status] ?? statusAccent.scheduled;
+              const isSelected = selectedSession?.id === s.id;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => handleSelectSession(s)}
+                  className={`w-full text-left flex items-center gap-3 sm:gap-4 p-3.5 sm:p-4 rounded-xl border-l-[3px] ${accent.bg} transition-all duration-200 cursor-pointer group ${
+                    isSelected
+                      ? "bg-white/[0.06] border border-white/[0.1] border-l-[3px]"
+                      : "bg-white/[0.03] border border-white/[0.06] border-l-[3px] hover:bg-white/[0.05]"
+                  }`}
+                >
+                  {/* Avatar */}
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500/20 to-teal-500/20 border border-white/[0.06] flex items-center justify-center text-xs font-bold text-orange-400 uppercase shrink-0">
+                    {(s.lead_name ?? "?").charAt(0)}
+                  </div>
 
-      {/* ── Detail Modal ── */}
-      {selectedSession && (
-        <SessionDetailModal
-          session={selectedSession}
-          onClose={() => setSelectedSession(null)}
-          onMarkCompleted={() => handleStatusUpdate(selectedSession.id, "completed")}
-          onCancel={() => handleStatusUpdate(selectedSession.id, "cancelled")}
-        />
-      )}
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-white truncate">
+                        {s.lead_name ?? "Unknown"}
+                      </p>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {formatDateTime(s.scheduled_time)} ·{" "}
+                      {getDuration(s.scheduled_time, s.end_time)}
+                    </p>
+                  </div>
+
+                  {/* Right side badges */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge status={s.status} variant="session" />
+                    <Badge status={s.payment_status} variant="payment" />
+                    <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-slate-400 transition-colors hidden sm:block" />
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        {/* Detail Panel */}
+        <div
+          className={`lg:col-span-2 ${
+            !mobileDetailOpen && !selectedSession ? "hidden lg:block" : ""
+          } ${mobileDetailOpen ? "" : "hidden lg:block"}`}
+        >
+          {selectedSession ? (
+            <SessionDetail
+              session={selectedSession}
+              onClose={() => {
+                setSelectedSession(null);
+                setMobileDetailOpen(false);
+              }}
+              onMarkCompleted={() =>
+                handleStatusUpdate(selectedSession.id, "completed")
+              }
+              onCancel={() =>
+                handleStatusUpdate(selectedSession.id, "cancelled")
+              }
+            />
+          ) : (
+            <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl flex items-center justify-center min-h-[400px]">
+              <div className="text-center">
+                <CalendarDays className="w-8 h-8 text-slate-700 mx-auto mb-3" />
+                <p className="text-sm text-slate-500">
+                  Select a session to view details
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/*  Detail Modal                                                       */
+/*  Session Detail Panel                                               */
 /* ------------------------------------------------------------------ */
 
-function SessionDetailModal({
+function SessionDetail({
   session,
   onClose,
   onMarkCompleted,
@@ -207,101 +334,141 @@ function SessionDetailModal({
   onCancel: () => void;
 }) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-enter"
-      onClick={onClose}
-    >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-
-      {/* Modal */}
-      <div
-        className="relative bg-slate-900 border border-white/[0.08] rounded-2xl w-full max-w-lg p-6 space-y-5 modal-enter shadow-2xl shadow-black/50"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500/20 to-teal-500/20 border border-white/[0.06] flex items-center justify-center text-sm font-bold text-orange-400 uppercase">
-              {(session.lead_name ?? "?").charAt(0)}
-            </div>
-            <div>
-              <h2 className="text-base font-semibold text-white tracking-tight">
-                {session.lead_name ?? "Unknown Lead"}
-              </h2>
-              <p className="text-xs text-slate-500">Session Details</p>
-            </div>
+    <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden sticky top-20">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500/20 to-teal-500/20 border border-white/[0.06] flex items-center justify-center text-sm font-bold text-orange-400 uppercase">
+            {(session.lead_name ?? "?").charAt(0)}
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.04] transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div>
+            <h3 className="text-sm font-semibold text-white">
+              {session.lead_name ?? "Unknown"}
+            </h3>
+            <p className="text-[11px] text-slate-500">Session Details</p>
+          </div>
+        </div>
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/[0.04] transition-colors cursor-pointer lg:hidden"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Status + Badges */}
+      <div className="px-5 py-3 flex items-center gap-2 border-b border-white/[0.04]">
+        <Badge status={session.status} variant="session" />
+        <Badge status={session.payment_status} variant="payment" />
+        {session.payment_amount != null && (
+          <span className="text-sm font-semibold text-white ml-auto">
+            ${session.payment_amount}
+          </span>
+        )}
+      </div>
+
+      {/* Details */}
+      <div className="p-5 space-y-4">
+        {/* Schedule */}
+        <div className="space-y-2.5">
+          <DetailItem
+            icon={<Clock className="w-3.5 h-3.5" />}
+            label="Date & Time"
+            value={formatDateTime(session.scheduled_time)}
+          />
+          <DetailItem
+            icon={<Clock className="w-3.5 h-3.5" />}
+            label="Duration"
+            value={getDuration(session.scheduled_time, session.end_time)}
+          />
+          <DetailItem
+            icon={<Clock className="w-3.5 h-3.5" />}
+            label="Ends at"
+            value={formatTime(session.end_time)}
+          />
         </div>
 
-        {/* Details grid */}
-        <div className="grid grid-cols-2 gap-4">
-          <DetailItem icon={<Clock className="w-3.5 h-3.5" />} label="Start" value={formatDateTime(session.scheduled_time)} />
-          <DetailItem icon={<Clock className="w-3.5 h-3.5" />} label="End" value={formatDateTime(session.end_time)} />
-          <DetailItem icon={<CheckCircle2 className="w-3.5 h-3.5" />} label="Status" value={<Badge status={session.status} variant="session" />} />
-          <DetailItem icon={<DollarSign className="w-3.5 h-3.5" />} label="Payment" value={<Badge status={session.payment_status} variant="payment" />} />
+        {/* Meeting link */}
+        {session.meeting_link && (
+          <a
+            href={session.meeting_link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2.5 p-3 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400 hover:bg-teal-500/15 transition-colors"
+          >
+            <Video className="w-4 h-4" />
+            <span className="text-xs font-medium">Join Meeting</span>
+            <ExternalLink className="w-3 h-3 ml-auto" />
+          </a>
+        )}
+
+        {/* Payment Info */}
+        <div className="space-y-2.5 pt-2 border-t border-white/[0.04]">
           <DetailItem
             icon={<DollarSign className="w-3.5 h-3.5" />}
-            label="Amount"
-            value={session.payment_amount != null ? `$${session.payment_amount}` : "—"}
+            label="Payment"
+            value={
+              <Badge status={session.payment_status} variant="payment" />
+            }
           />
-          {session.meeting_link && (
+          {session.payment_amount != null && (
             <DetailItem
-              icon={<ExternalLink className="w-3.5 h-3.5" />}
-              label="Meeting"
-              value={
-                <a
-                  href={session.meeting_link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-orange-400 hover:text-orange-300 hover:underline truncate block text-sm"
-                >
-                  Join link ↗
-                </a>
-              }
+              icon={<DollarSign className="w-3.5 h-3.5" />}
+              label="Amount"
+              value={`$${session.payment_amount}`}
+            />
+          )}
+          {session.invoice_sent_at && (
+            <DetailItem
+              icon={<Mail className="w-3.5 h-3.5" />}
+              label="Invoice sent"
+              value={formatDateTime(session.invoice_sent_at)}
             />
           )}
         </div>
 
+        {/* Notes */}
         {session.session_notes && (
-          <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2 text-slate-500">
-              <StickyNote className="w-3.5 h-3.5" />
-              <span className="text-xs font-medium uppercase tracking-wider">Notes</span>
+          <div className="pt-2 border-t border-white/[0.04]">
+            <div className="flex items-center gap-1.5 mb-2 text-slate-500">
+              <StickyNote className="w-3 h-3" />
+              <span className="text-[10px] font-medium uppercase tracking-wider">
+                Notes
+              </span>
             </div>
-            <p className="text-sm text-slate-300 leading-relaxed">{session.session_notes}</p>
-          </div>
-        )}
-
-        {/* Actions */}
-        {session.status === "scheduled" && (
-          <div className="flex gap-3 pt-1">
-            <button
-              onClick={onMarkCompleted}
-              className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-xl transition-all duration-200 text-sm cursor-pointer hover:shadow-lg hover:shadow-emerald-500/20"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              Mark Completed
-            </button>
-            <button
-              onClick={onCancel}
-              className="flex-1 flex items-center justify-center gap-2 bg-white/[0.04] hover:bg-red-500/15 text-slate-400 hover:text-red-400 font-medium py-2.5 rounded-xl transition-all duration-200 text-sm border border-white/[0.06] hover:border-red-500/25 cursor-pointer"
-            >
-              <XCircle className="w-4 h-4" />
-              Cancel
-            </button>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              {session.session_notes}
+            </p>
           </div>
         )}
       </div>
+
+      {/* Actions */}
+      {session.status === "scheduled" && (
+        <div className="px-5 pb-5 flex gap-2">
+          <button
+            onClick={onMarkCompleted}
+            className="flex-1 flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-xl transition-all text-xs cursor-pointer"
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            Complete
+          </button>
+          <button
+            onClick={onCancel}
+            className="flex-1 flex items-center justify-center gap-1.5 bg-white/[0.04] hover:bg-red-500/15 text-slate-400 hover:text-red-400 font-medium py-2.5 rounded-xl transition-all text-xs border border-white/[0.06] hover:border-red-500/25 cursor-pointer"
+          >
+            <XCircle className="w-3.5 h-3.5" />
+            Cancel
+          </button>
+        </div>
+      )}
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/*  Detail Item                                                        */
+/* ------------------------------------------------------------------ */
 
 function DetailItem({
   icon,
@@ -313,12 +480,12 @@ function DetailItem({
   value: React.ReactNode;
 }) {
   return (
-    <div>
-      <div className="flex items-center gap-1.5 mb-1 text-slate-500">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-1.5 text-slate-500">
         {icon}
-        <span className="text-xs font-medium">{label}</span>
+        <span className="text-[11px] font-medium">{label}</span>
       </div>
-      <div className="text-sm text-white">{value}</div>
+      <div className="text-xs text-white">{value}</div>
     </div>
   );
 }

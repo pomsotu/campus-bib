@@ -230,21 +230,21 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-5 max-w-2xl">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-white tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
             Settings
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 mt-0.5">
             Manage your profile and business configuration
           </p>
         </div>
         <button
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center gap-2 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white font-medium px-5 py-2.5 rounded-xl transition-all duration-200 text-sm disabled:opacity-50 cursor-pointer shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30"
+          className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-500 text-white font-medium px-5 py-2.5 rounded-xl transition-all duration-200 text-sm disabled:opacity-50 cursor-pointer shadow-lg shadow-orange-500/20"
         >
           {saving ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -256,39 +256,43 @@ export default function SettingsPage() {
       </div>
 
       {/* Profile Section */}
-      <Section icon={<User className="w-5 h-5 text-violet-400" />} title="Profile">
-        <Field
-          label="Full Name"
-          value={form.name}
-          onChange={(v) => setForm({ ...form, name: v })}
-          placeholder="Your name"
-        />
-        <Field
-          label="Email"
-          value={form.email}
-          onChange={(v) => setForm({ ...form, email: v })}
-          placeholder="you@example.com"
-          type="email"
-        />
+      <Section icon={<User className="w-4 h-4 text-violet-400" />} title="Profile">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field
+            label="Full Name"
+            value={form.name}
+            onChange={(v) => setForm({ ...form, name: v })}
+            placeholder="Your name"
+          />
+          <Field
+            label="Email"
+            value={form.email}
+            onChange={(v) => setForm({ ...form, email: v })}
+            placeholder="you@example.com"
+            type="email"
+          />
+        </div>
       </Section>
 
       {/* Business Section */}
       <Section
-        icon={<Building2 className="w-5 h-5 text-teal-400" />}
+        icon={<Building2 className="w-4 h-4 text-teal-400" />}
         title="Business"
       >
-        <Field
-          label="Business Name"
-          value={form.business_name}
-          onChange={(v) => setForm({ ...form, business_name: v })}
-          placeholder="e.g. Sarah's Design Studio"
-        />
-        <Field
-          label="Service Type"
-          value={form.service_type}
-          onChange={(v) => setForm({ ...form, service_type: v })}
-          placeholder="e.g. tutoring, design, photography"
-        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field
+            label="Business Name"
+            value={form.business_name}
+            onChange={(v) => setForm({ ...form, business_name: v })}
+            placeholder="e.g. Sarah's Design Studio"
+          />
+          <Field
+            label="Service Type"
+            value={form.service_type}
+            onChange={(v) => setForm({ ...form, service_type: v })}
+            placeholder="e.g. tutoring, design, photography"
+          />
+        </div>
         <div className="grid grid-cols-2 gap-4">
           <Field
             label="Hourly Rate ($)"
@@ -311,7 +315,7 @@ export default function SettingsPage() {
 
       {/* Integrations Section */}
       <Section
-        icon={<Link2 className="w-5 h-5 text-orange-400" />}
+        icon={<Link2 className="w-4 h-4 text-orange-400" />}
         title="Integrations"
       >
         <Field
@@ -325,27 +329,29 @@ export default function SettingsPage() {
 
       {/* Security Section */}
       <Section
-        icon={<Shield className="w-5 h-5 text-amber-400" />}
+        icon={<Shield className="w-4 h-4 text-amber-400" />}
         title="Security"
       >
-        <Field
-          label="New Password"
-          value={passwordForm.newPassword}
-          onChange={(v) =>
-            setPasswordForm({ ...passwordForm, newPassword: v })
-          }
-          placeholder="••••••••"
-          type="password"
-        />
-        <Field
-          label="Confirm New Password"
-          value={passwordForm.confirmPassword}
-          onChange={(v) =>
-            setPasswordForm({ ...passwordForm, confirmPassword: v })
-          }
-          placeholder="••••••••"
-          type="password"
-        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field
+            label="New Password"
+            value={passwordForm.newPassword}
+            onChange={(v) =>
+              setPasswordForm({ ...passwordForm, newPassword: v })
+            }
+            placeholder="••••••••"
+            type="password"
+          />
+          <Field
+            label="Confirm New Password"
+            value={passwordForm.confirmPassword}
+            onChange={(v) =>
+              setPasswordForm({ ...passwordForm, confirmPassword: v })
+            }
+            placeholder="••••••••"
+            type="password"
+          />
+        </div>
         <button
           onClick={handlePasswordChange}
           disabled={
@@ -353,7 +359,7 @@ export default function SettingsPage() {
             !passwordForm.newPassword ||
             !passwordForm.confirmPassword
           }
-          className="w-full flex items-center justify-center gap-2 bg-white/[0.05] border border-white/[0.08] hover:bg-white/[0.08] text-white font-medium py-2.5 rounded-xl transition-all duration-200 text-sm disabled:opacity-30 cursor-pointer"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white/[0.05] border border-white/[0.08] hover:bg-white/[0.08] text-white font-medium px-5 py-2.5 rounded-xl transition-all duration-200 text-sm disabled:opacity-30 cursor-pointer"
         >
           {changingPassword ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -364,13 +370,20 @@ export default function SettingsPage() {
         </button>
       </Section>
 
-      {/* Sign Out */}
-      <div className="pt-4 border-t border-white/[0.06]">
+      {/* Danger Zone */}
+      <div className="bg-red-500/[0.04] border border-red-500/10 rounded-2xl p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <LogOut className="w-4 h-4 text-red-400" />
+          <h3 className="text-sm font-semibold text-red-400">Danger Zone</h3>
+        </div>
+        <p className="text-xs text-slate-500 mb-3">
+          Once you sign out, you&apos;ll need to log in again.
+        </p>
         <button
           onClick={handleSignOut}
-          className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+          className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-red-400 border border-red-500/20 rounded-xl hover:bg-red-500/10 transition-colors cursor-pointer"
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut className="w-3.5 h-3.5" />
           Sign Out
         </button>
       </div>
@@ -392,14 +405,16 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6 space-y-4">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="w-9 h-9 rounded-xl bg-white/[0.05] flex items-center justify-center">
+    <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
+      <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-white/[0.06]">
+        <div className="w-7 h-7 rounded-lg bg-white/[0.05] flex items-center justify-center">
           {icon}
         </div>
-        <h2 className="text-lg font-semibold text-white">{title}</h2>
+        <h2 className="text-sm font-semibold text-white">{title}</h2>
       </div>
-      {children}
+      <div className="p-5 space-y-4">
+        {children}
+      </div>
     </div>
   );
 }
