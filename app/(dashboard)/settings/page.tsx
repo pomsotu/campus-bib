@@ -370,6 +370,38 @@ export default function SettingsPage() {
         </button>
       </Section>
 
+      {/* Theme Section */}
+      <Section
+        icon={<Settings className="w-4 h-4 text-blue-400" />}
+        title="Theme Preferences"
+      >
+        <div className="space-y-3">
+          <label className="block text-xs font-medium text-slate-400">Appearance</label>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { id: "light", label: "Light" },
+              { id: "dark", label: "Dark" },
+              { id: "system", label: "System" },
+            ].map((t) => (
+              <button
+                key={t.id}
+                onClick={() => toast.success(`Theme set to ${t.label} (Mock)`)}
+                className={`py-2 px-3 rounded-xl border text-sm font-medium transition-all ${
+                  t.id === "dark" 
+                    ? "bg-orange-500/10 border-orange-500/30 text-orange-400" 
+                    : "bg-white/[0.03] border-white/[0.06] text-slate-400 hover:text-white hover:bg-white/[0.05]"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-500">
+            Choose your preferred dashboard appearance. Dark mode is currently active.
+          </p>
+        </div>
+      </Section>
+
       {/* Danger Zone */}
       <div className="bg-red-500/[0.04] border border-red-500/10 rounded-2xl p-5">
         <div className="flex items-center gap-2 mb-3">

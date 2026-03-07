@@ -90,5 +90,45 @@ export function useSessions(
     [supabase]
   );
 
-  return { sessions, loading, error, refetch: fetchSessions, updateSessionStatus };
+  const addSession = useCallback(
+    async (sessionData: Partial<Session>) => {
+      if (!clientId) return { error: "No client ID" };
+      try {
+        const { data, error: dbError } = await supabase
+          .from("sessions")
+          .insert([
+            {
+              ...sessionData,
+              client_id: clientId,
+              status: sessionData.status || "scheduled",
+            },
+          ])
+          .select("*, leads(name)")
+          .single();
+
+        if (dbError) throw dbError;
+
+        if (data) {
+          const leads = data.leads as { name: string } | null;
+          const { leads: _leads, ...rest } = data;
+          const newSession = {
+            ...rest,
+            lead_name: leads?.name ?? null,
+          } as SessionWithLead;
+          
+          setSessions((prev) => [newSession, ...prev]);
+        }
+        return { data, error: null };
+      } catch (err: unknown) {
+        const message =
+          err && typeof err === "object" && "message" in err
+            ? (err as { message: string }).message
+            : "Failed to add session";
+        return { error: message, data: null };
+      }
+    },
+    [clientId, supabase]
+  );
+
+  return { sessions, loading, error, refetch: fetchSessions, updateSessionStatus, addSession };
 }

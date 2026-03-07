@@ -6,6 +6,7 @@ import { useLeads } from "@/lib/hooks/useLeads";
 import Badge from "@/components/ui/Badge";
 import { SkeletonCard } from "@/components/ui/Skeleton";
 import type { Lead, LeadStatus } from "@/types/database.types";
+import { toast } from "sonner";
 import {
   Search,
   Filter,
@@ -98,23 +99,33 @@ export default function LeadsPage() {
     leads,
     loading: leadsLoading,
     updateLeadStatus,
+    addLead,
   } = useLeads(client?.id);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedLead, setExpandedLead] = useState<string | null>(null);
   const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
   const [dragOverCol, setDragOverCol] = useState<LeadStatus | null>(null);
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterService, setFilterService] = useState<string>("all");
+
+  const uniqueServices = useMemo(
+    () => Array.from(new Set(leads.map((l) => l.service_requested).filter(Boolean))),
+    [leads]
+  );
 
   const filteredLeads = useMemo(() => {
-    if (!searchQuery.trim()) return leads;
-    const q = searchQuery.toLowerCase();
-    return leads.filter(
-      (l) =>
+    return leads.filter((l) => {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = !q || 
         l.name?.toLowerCase().includes(q) ||
         l.email?.toLowerCase().includes(q) ||
-        l.service_requested?.toLowerCase().includes(q)
-    );
-  }, [leads, searchQuery]);
+        l.service_requested?.toLowerCase().includes(q);
+      const matchesService = filterService === "all" || l.service_requested === filterService;
+      return matchesSearch && matchesService;
+    });
+  }, [leads, searchQuery, filterService]);
 
   const groupedLeads = useMemo(() => {
     const groups: Record<LeadStatus, Lead[]> = {
@@ -209,16 +220,45 @@ export default function LeadsPage() {
               List
             </button>
           </div>
-          <button className="flex items-center gap-2 px-3.5 py-2.5 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/[0.05] transition-all cursor-pointer">
+          <button 
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center gap-2 px-3.5 py-2.5 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm transition-all cursor-pointer ${showFilters ? 'text-orange-400 border-orange-500/30' : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'}`}>
             <Filter className="w-4 h-4" />
             <span className="hidden sm:inline">Filter</span>
           </button>
-          <button className="flex items-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-medium rounded-xl text-sm transition-all shadow-lg shadow-orange-500/20 cursor-pointer">
+          <button 
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-medium rounded-xl text-sm transition-all shadow-lg shadow-orange-500/20 cursor-pointer">
             <UserPlus className="w-4 h-4" />
             <span>Add Lead</span>
           </button>
         </div>
       </div>
+
+      {/* ── Filters Row ── */}
+      {showFilters && (
+        <div className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl animate-in fade-in slide-in-from-top-2">
+          <label className="text-xs font-medium text-slate-400">Service:</label>
+          <select
+            value={filterService}
+            onChange={(e) => setFilterService(e.target.value)}
+            className="px-3 py-1.5 bg-white/[0.03] border border-white/[0.06] rounded-lg text-xs text-white focus:outline-none focus:ring-2 focus:ring-orange-500/30 appearance-none"
+          >
+            <option value="all" className="bg-slate-900">All Services</option>
+            {uniqueServices.map((s) => (
+              <option key={s as string} value={s as string} className="bg-slate-900">{s as string}</option>
+            ))}
+          </select>
+          {filterService !== "all" && (
+            <button
+              onClick={() => setFilterService("all")}
+              className="text-xs text-slate-500 hover:text-white transition-colors cursor-pointer"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── Stats Summary ── */}
       <div className="flex items-center gap-3 flex-wrap">
@@ -369,6 +409,21 @@ export default function LeadsPage() {
           </div>
         </div>
       )}
+
+      {isAddModalOpen && (
+        <AddLeadModal
+          onClose={() => setIsAddModalOpen(false)}
+          onSave={async (data: Partial<Lead>) => {
+            const res = await addLead(data);
+            if (res.error) {
+              toast.error("Failed to add lead", { description: res.error });
+            } else {
+              toast.success("Lead added successfully");
+              setIsAddModalOpen(false);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -472,6 +527,96 @@ function LeadCard({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Add Lead Modal                                                     */
+/* ------------------------------------------------------------------ */
+
+function AddLeadModal({
+  onClose,
+  onSave,
+}: {
+  onClose: () => void;
+  onSave: (data: Partial<Lead>) => Promise<void>;
+}) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [service, setService] = useState("");
+  const [source, setSource] = useState("");
+  const [notes, setNotes] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name || !email) return;
+    setLoading(true);
+    await onSave({
+      name,
+      email,
+      phone: phone || null,
+      service_requested: service || null,
+      source: source || null,
+      notes: notes || null,
+      status: "new",
+    });
+    setLoading(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-slate-900 border border-white/[0.08] rounded-2xl w-full max-w-md p-6 shadow-2xl shadow-black/50 z-10 max-h-[90vh] overflow-y-auto custom-scrollbar">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-semibold text-white tracking-tight">Add New Lead</h2>
+          <button onClick={onClose} className="p-2 -mr-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.04] transition-colors cursor-pointer">
+             <span className="w-4 h-4 block text-center leading-none">×</span>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Name *</label>
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} required className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500/30" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Email *</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500/30" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Phone</label>
+              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500/30" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Source</label>
+              <input type="text" value={source} onChange={(e) => setSource(e.target.value)} placeholder="e.g. Website, Referral" className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500/30" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">Service Requested</label>
+            <input type="text" value={service} onChange={(e) => setService(e.target.value)} className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500/30" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">Notes</label>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500/30 resize-none" />
+          </div>
+
+          <div className="pt-2 flex gap-3">
+            <button type="button" onClick={onClose} className="flex-1 py-2.5 px-4 rounded-xl text-sm font-medium text-slate-400 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] transition-colors cursor-pointer">
+              Cancel
+            </button>
+            <button type="submit" disabled={loading || !name || !email} className="flex-1 py-2.5 px-4 rounded-xl text-sm font-medium text-white bg-orange-600 hover:bg-orange-500 shadow-lg shadow-orange-500/20 disabled:opacity-50 transition-colors cursor-pointer flex items-center justify-center gap-2">
+              {loading ? <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : "Add Lead"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

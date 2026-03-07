@@ -3,10 +3,11 @@
 import { useState, useMemo } from "react";
 import { useClient } from "@/lib/hooks/useClient";
 import { useSessions, type SessionWithLead } from "@/lib/hooks/useSessions";
+import { useLeads } from "@/lib/hooks/useLeads";
 import Badge from "@/components/ui/Badge";
 import { SkeletonCard, SkeletonRow } from "@/components/ui/Skeleton";
 import EmptyState from "@/components/ui/EmptyState";
-import type { SessionStatus } from "@/types/database.types";
+import type { SessionStatus, Session } from "@/types/database.types";
 import { toast } from "sonner";
 import {
   CalendarDays,
@@ -82,14 +83,18 @@ export default function SessionsPage() {
   const [selectedSession, setSelectedSession] =
     useState<SessionWithLead | null>(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const {
     sessions,
     loading,
     error,
     updateSessionStatus,
+    addSession,
     refetch,
   } = useSessions(client?.id, filter === "all" ? undefined : filter);
+
+  const { leads } = useLeads(client?.id);
 
   // Count by status for tab badges
   const {
@@ -209,7 +214,10 @@ export default function SessionsPage() {
           ))}
         </div>
 
-        <button className="flex items-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-medium rounded-xl text-sm transition-all shadow-lg shadow-orange-500/20 cursor-pointer">
+        <button 
+          onClick={() => setIsAddModalOpen(true)}
+          className="flex items-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-medium rounded-xl text-sm transition-all shadow-lg shadow-orange-500/20 cursor-pointer"
+        >
           <Plus className="w-4 h-4" />
           <span>New Session</span>
         </button>
@@ -314,6 +322,23 @@ export default function SessionsPage() {
           )}
         </div>
       </div>
+
+      {isAddModalOpen && (
+        <AddSessionModal
+          leads={leads}
+          onClose={() => setIsAddModalOpen(false)}
+          onSave={async (data) => {
+            const res = await addSession(data);
+            if (res.error) {
+              toast.error("Failed to add session", { description: res.error });
+            } else {
+              toast.success("Session added successfully");
+              setIsAddModalOpen(false);
+              refetch();
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -486,6 +511,116 @@ function DetailItem({
         <span className="text-[11px] font-medium">{label}</span>
       </div>
       <div className="text-xs text-white">{value}</div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Add Session Modal                                                  */
+/* ------------------------------------------------------------------ */
+
+function AddSessionModal({
+  leads,
+  onClose,
+  onSave,
+}: {
+  leads: any[];
+  onClose: () => void;
+  onSave: (data: Partial<Session>) => Promise<void>;
+}) {
+  const [leadId, setLeadId] = useState("");
+  const [scheduledTime, setScheduledTime] = useState("");
+  const [duration, setDuration] = useState("30");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!leadId || !scheduledTime) return;
+    setLoading(true);
+    const end_time = new Date(new Date(scheduledTime).getTime() + parseInt(duration) * 60000).toISOString();
+    await onSave({
+      lead_id: leadId,
+      scheduled_time: new Date(scheduledTime).toISOString(),
+      end_time,
+      status: "scheduled",
+    });
+    setLoading(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-slate-900 border border-white/[0.08] rounded-2xl w-full max-w-md p-6 shadow-2xl shadow-black/50 z-10">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-semibold text-white tracking-tight">Add New Session</h2>
+          <button onClick={onClose} className="p-2 -mr-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.04] transition-colors cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">Lead</label>
+            <select
+              value={leadId}
+              onChange={(e) => setLeadId(e.target.value)}
+              required
+              className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40 appearance-none"
+            >
+              <option value="" disabled className="bg-slate-900">Select a lead...</option>
+              {leads.map((l) => (
+                <option key={l.id} value={l.id} className="bg-slate-900">
+                  {l.name || l.email}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">Date & Time</label>
+            <input
+              type="datetime-local"
+              value={scheduledTime}
+              onChange={(e) => setScheduledTime(e.target.value)}
+              required
+              className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">Duration (minutes)</label>
+            <select
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40 appearance-none"
+            >
+              <option value="15" className="bg-slate-900">15 minutes</option>
+              <option value="30" className="bg-slate-900">30 minutes</option>
+              <option value="45" className="bg-slate-900">45 minutes</option>
+              <option value="60" className="bg-slate-900">1 hour</option>
+              <option value="90" className="bg-slate-900">1.5 hours</option>
+              <option value="120" className="bg-slate-900">2 hours</option>
+            </select>
+          </div>
+
+          <div className="pt-2 flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 px-4 rounded-xl text-sm font-medium text-slate-400 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading || !leadId || !scheduledTime}
+              className="flex-1 py-2.5 px-4 rounded-xl text-sm font-medium text-white bg-orange-600 hover:bg-orange-500 shadow-lg shadow-orange-500/20 disabled:opacity-50 transition-colors cursor-pointer flex items-center justify-center gap-2"
+            >
+              {loading ? <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : "Schedule"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

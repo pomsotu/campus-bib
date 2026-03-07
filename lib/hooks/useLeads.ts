@@ -75,5 +75,38 @@ export function useLeads(
     [supabase]
   );
 
-  return { leads, loading, error, refetch: fetchLeads, updateLeadStatus };
+  const addLead = useCallback(
+    async (leadData: Partial<Lead>) => {
+      if (!clientId) return { error: "No client ID" };
+      try {
+        const { data, error: dbError } = await supabase
+          .from("leads")
+          .insert([
+            {
+              ...leadData,
+              client_id: clientId,
+              status: leadData.status || "new",
+            },
+          ])
+          .select()
+          .single();
+
+        if (dbError) throw dbError;
+
+        if (data) {
+          setLeads((prev) => [data as Lead, ...prev]);
+        }
+        return { data, error: null };
+      } catch (err: unknown) {
+        const message =
+          err && typeof err === "object" && "message" in err
+            ? (err as { message: string }).message
+            : "Failed to add lead";
+        return { error: message, data: null };
+      }
+    },
+    [clientId, supabase]
+  );
+
+  return { leads, loading, error, refetch: fetchLeads, updateLeadStatus, addLead };
 }
