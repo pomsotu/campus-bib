@@ -10,12 +10,14 @@ import {
   Users,
   Settings,
   LogOut,
+  FileText,
 } from "lucide-react";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Sessions",  href: "/sessions",  icon: CalendarDays },
   { label: "Leads",     href: "/leads",     icon: Users },
+  { label: "Invoices",  href: "/invoices",  icon: FileText },
   { label: "Settings",  href: "/settings",  icon: Settings },
 ];
 

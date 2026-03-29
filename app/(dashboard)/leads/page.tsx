@@ -11,15 +11,12 @@ import {
   Search,
   Filter,
   UserPlus,
-  Mail,
   Phone,
-  Clock,
   Globe,
   ChevronDown,
   ChevronUp,
   Tag,
   X,
-  GripVertical,
   MessageSquare,
 } from "lucide-react";
 

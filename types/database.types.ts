@@ -82,3 +82,23 @@ export interface ClientSetting {
   created_at: string;
   updated_at: string;
 }
+
+export type InvoiceStatus = "pending" | "paid" | "overdue";
+
+export interface Invoice {
+  id: string;
+  client_id: string;
+  lead_id: string | null;
+  session_id: string | null;
+  invoice_number: string;
+  client_name: string;
+  client_email: string | null;
+  amount: number;
+  description: string | null;
+  status: InvoiceStatus;
+  due_date: string;
+  sent_at: string | null;
+  paid_at: string | null;
+  created_at: string;
+  updated_at: string;
+}

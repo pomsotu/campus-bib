@@ -5,9 +5,9 @@ import { useClient } from "@/lib/hooks/useClient";
 import { useSessions, type SessionWithLead } from "@/lib/hooks/useSessions";
 import { useLeads } from "@/lib/hooks/useLeads";
 import Badge from "@/components/ui/Badge";
-import { SkeletonCard, SkeletonRow } from "@/components/ui/Skeleton";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 import EmptyState from "@/components/ui/EmptyState";
-import type { SessionStatus, Session } from "@/types/database.types";
+import type { SessionStatus, Session, Lead } from "@/types/database.types";
 import { toast } from "sonner";
 import {
   CalendarDays,
@@ -18,7 +18,6 @@ import {
   Clock,
   DollarSign,
   StickyNote,
-  User,
   Mail,
   Plus,
   ChevronRight,
@@ -524,7 +523,7 @@ function AddSessionModal({
   onClose,
   onSave,
 }: {
-  leads: any[];
+  leads: Lead[];
   onClose: () => void;
   onSave: (data: Partial<Session>) => Promise<void>;
 }) {

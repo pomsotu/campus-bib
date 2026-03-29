@@ -10,6 +10,7 @@ const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/sessions": "Sessions",
   "/leads": "Leads",
+  "/invoices": "Invoices",
   "/settings": "Settings",
 };
 
@@ -17,6 +18,7 @@ const pageDescriptions: Record<string, string> = {
   "/dashboard": "Overview of your campus service business",
   "/sessions": "Manage your upcoming and past sessions",
   "/leads": "Track and convert your leads pipeline",
+  "/invoices": "Manage billing and client payments",
   "/settings": "Configure your business preferences",
 };
 
